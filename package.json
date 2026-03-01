@@ -1,0 +1,12 @@
+{
+  "name": "comic-chat",
+  "version": "1.0.0",
+  "description": "Browser-based Comic Chat clone",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8"
+  }
+}

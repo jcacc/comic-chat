@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comic Chat</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Comic Sans MS', 'Chalkboard SE', cursive;
+    background: #ddd;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  #title-bar {
+    background: #000080;
+    color: white;
+    padding: 4px 8px;
+    font-size: 13px;
+    font-weight: bold;
+    font-family: 'Arial', sans-serif;
+    flex-shrink: 0;
+  }
+
+  #main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* LEFT: Comic strip */
+  #comic-scroll {
+    flex: 0 0 70%;
+    overflow-y: auto;
+    background: #fff;
+    border-right: 3px solid #222;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  #comic-canvas {
+    display: block;
+    width: 100%;
+  }
+
+  /* RIGHT: Sidebar */
+  #sidebar {
+    flex: 0 0 30%;
+    display: flex;
+    flex-direction: column;
+    background: #f0f0f0;
+    overflow: hidden;
+  }
+
+  #sidebar-title {
+    background: #222;
+    color: #fff;
+    font-size: 11px;
+    font-family: Arial, sans-serif;
+    padding: 3px 6px;
+    text-align: center;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+  }
+
+  #mugshots {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-content: flex-start;
+  }
+
+  .mugshot-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 70px;
+  }
+
+  .mugshot-label {
+    font-size: 9px;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin-top: 2px;
+    max-width: 70px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .you-badge {
+    font-size: 8px;
+    background: #000080;
+    color: #fff;
+    border-radius: 2px;
+    padding: 0 3px;
+    font-family: Arial, sans-serif;
+  }
+
+  #emotion-section {
+    flex-shrink: 0;
+    padding: 6px;
+    border-top: 2px solid #222;
+  }
+
+  #emotion-title {
+    font-size: 10px;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin-bottom: 4px;
+    color: #333;
+  }
+
+  #emotion-wheel {
+    display: block;
+    margin: 0 auto;
+    cursor: pointer;
+  }
+
+  /* BOTTOM BAR */
+  #bottom-bar {
+    flex-shrink: 0;
+    background: #c0c0c0;
+    border-top: 2px solid #888;
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  #balloon-row {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    font-size: 12px;
+  }
+
+  #balloon-row label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  #input-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  #name-label {
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  #name-input {
+    width: 90px;
+    font-family: inherit;
+    font-size: 12px;
+    padding: 2px 4px;
+    border: 2px inset #888;
+  }
+
+  #chat-input {
+    flex: 1;
+    font-family: inherit;
+    font-size: 13px;
+    padding: 3px 6px;
+    border: 2px inset #888;
+  }
+
+  #send-btn {
+    padding: 3px 12px;
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    background: #c0c0c0;
+    border: 2px outset #fff;
+    font-weight: bold;
+  }
+
+  #send-btn:active { border-style: inset; }
+
+  #status-bar {
+    font-size: 10px;
+    font-family: Arial, sans-serif;
+    color: #444;
+  }
+</style>
+</head>
+<body>
+
+<div id="title-bar">Comic Chat — Multi-user Comic Strip Chat</div>
+
+<div id="main">
+  <!-- Comic strip panel -->
+  <div id="comic-scroll">
+    <canvas id="comic-canvas"></canvas>
+  </div>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="sidebar-title">CONNECTED USERS</div>
+    <div id="mugshots"></div>
+    <div id="emotion-section">
+      <div id="emotion-title">EMOTION WHEEL</div>
+      <canvas id="emotion-wheel" width="180" height="180"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom bar -->
+<div id="bottom-bar">
+  <div id="balloon-row">
+    <span style="font-size:11px;font-family:Arial;color:#333">Balloon:</span>
+    <label><input type="radio" name="balloon" value="speech" checked> 💬 Speech</label>
+    <label><input type="radio" name="balloon" value="thought"> 💭 Thought</label>
+    <label><input type="radio" name="balloon" value="shout"> 📢 Shout</label>
+    <label><input type="radio" name="balloon" value="whisper"> 🤫 Whisper</label>
+  </div>
+  <div id="input-row">
+    <span id="name-label">Name:</span>
+    <input id="name-input" type="text" placeholder="Your name" maxlength="20">
+    <span style="font-size:12px">›</span>
+    <input id="chat-input" type="text" placeholder="Type a message and press Enter..." maxlength="200">
+    <button id="send-btn">→</button>
+  </div>
+  <div id="status-bar" id="status-bar">Connecting...</div>
+</div>
+
+<script>
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const CHAR_COLORS = ['#e74c3c','#3498db','#2ecc71','#f39c12',
+                     '#9b59b6','#1abc9c','#e67e22','#e91e63'];
+
+const EMOTIONS = {
+  neutral:  '😐',
+  happy:    '😊',
+  laughing: '😂',
+  coy:      '😏',
+  sad:      '😢',
+  angry:    '😠',
+  scared:   '😨',
+  shouting: '😤',
+};
+
+const EMOTION_KEYS = Object.keys(EMOTIONS);
+
+const PANEL_BG = ['#ffffff', '#fff8f0', '#f0f8ff', '#f8fff0', '#fff0f8'];
+
+const WS_URL = 'ws://localhost:3001';
+
+// ─── State ────────────────────────────────────────────────────────────────────
+
+let ws = null;
+let myName = '';
+let myCharIdx = -1;
+let selectedEmotion = 'neutral';
+let roster = []; // [{name, charIdx}]
+let mugEmotions = {}; // name → current emotion shown in mugshot
+
+// Panel batching state
+let openPanel = null;   // { speaker, listeners, messages[], startTime, bg }
+let panelTimer = null;
+
+// Canvas state
+const comicCanvas = document.getElementById('comic-canvas');
+const comicCtx = comicCanvas.getContext('2d');
+let canvasHeight = 0;
+const PANEL_H = 220;
+const PANEL_PAD = 8;
+
+// ─── WebSocket ────────────────────────────────────────────────────────────────
+
+function connect() {
+  setStatus('Connecting...');
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    setStatus('Connected. Enter your name and start chatting!');
+  };
+
+  ws.onclose = () => {
+    setStatus('Disconnected. Reconnecting in 3s...');
+    setTimeout(connect, 3000);
+  };
+
+  ws.onerror = () => {
+    setStatus('Connection error.');
+  };
+
+  ws.onmessage = (evt) => {
+    let msg;
+    try { msg = JSON.parse(evt.data); } catch { return; }
+    handleServerMessage(msg);
+  };
+}
+
+function sendMsg(data) {
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify(data));
+  }
+}
+
+// ─── Server message handling ──────────────────────────────────────────────────
+
+function handleServerMessage(msg) {
+  switch (msg.type) {
+    case 'roster':
+      roster = msg.users;
+      renderMugshots();
+      break;
+
+    case 'join':
+      addSystemPanel(`${msg.user} has joined the chat`, msg.charIdx);
+      break;
+
+    case 'leave':
+      addSystemPanel(`${msg.user} has left`, -1);
+      break;
+
+    case 'chat':
+      mugEmotions[msg.user] = msg.emotion;
+      updateMugshot(msg.user);
+      ingestChatMessage(msg);
+      break;
+  }
+}
+
+// ─── Panel engine ─────────────────────────────────────────────────────────────
+
+function ingestChatMessage(msg) {
+  const now = Date.now();
+
+  // Auto-detect emotion/gesture if needed
+  const emotion = msg.emotion || 'neutral';
+  const gesture = detectGesture(msg.text);
+
+  const entry = {
+    user: msg.user,
+    charIdx: msg.charIdx,
+    text: msg.text,
+    emotion,
+    gesture,
+    balloon: msg.balloon || 'speech',
+  };
+
+  if (openPanel) {
+    const elapsed = now - openPanel.startTime;
+    const speakersInPanel = new Set(openPanel.messages.map(m => m.user));
+    const speakerMsgCount = openPanel.messages.filter(m => m.user === msg.user).length;
+
+    const canAppend =
+      elapsed < 4000 &&
+      speakerMsgCount < 2 &&
+      speakersInPanel.size < 3;
+
+    if (canAppend) {
+      openPanel.messages.push(entry);
+      resetPanelTimer();
+      return;
+    } else {
+      finalizePanel();
+    }
+  }
+
+  // Start new panel
+  openPanel = {
+    messages: [entry],
+    startTime: now,
+    bg: PANEL_BG[Math.floor(Math.random() * PANEL_BG.length)],
+  };
+  resetPanelTimer();
+}
+
+function resetPanelTimer() {
+  if (panelTimer) clearTimeout(panelTimer);
+  panelTimer = setTimeout(finalizePanel, 4000);
+}
+
+function finalizePanel() {
+  if (panelTimer) { clearTimeout(panelTimer); panelTimer = null; }
+  if (!openPanel) return;
+  const panel = openPanel;
+  openPanel = null;
+  renderPanel(panel);
+}
+
+function addSystemPanel(text, charIdx) {
+  // Finalize any open panel first
+  if (openPanel) finalizePanel();
+
+  const sysPanel = {
+    messages: [{
+      user: '★',
+      charIdx: -1,
+      text,
+      emotion: 'neutral',
+      gesture: 'neutral',
+      balloon: 'speech',
+      system: true,
+    }],
+    bg: '#f5f5f5',
+    system: true,
+  };
+  renderPanel(sysPanel);
+}
+
+// ─── Canvas panel rendering ───────────────────────────────────────────────────
+
+function renderPanel(panel) {
+  const w = comicCanvas.width;
+  const h = PANEL_H;
+  const yOffset = canvasHeight;
+
+  // Grow canvas
+  canvasHeight += h + PANEL_PAD;
+  comicCanvas.height = canvasHeight;
+  comicCanvas.style.height = canvasHeight + 'px';
+
+  const cx = comicCtx;
+
+  // Background
+  cx.fillStyle = panel.bg || '#fff';
+  cx.fillRect(0, yOffset, w, h);
+
+  // Border
+  cx.strokeStyle = '#222';
+  cx.lineWidth = 2;
+  cx.strokeRect(1, yOffset + 1, w - 2, h - 2);
+
+  // System panel: just centered text
+  if (panel.system) {
+    cx.fillStyle = '#555';
+    cx.font = 'italic 13px Arial, sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText(panel.messages[0].text, w / 2, yOffset + h / 2);
+    autoScroll();
+    return;
+  }
+
+  // Determine speaker (last unique speaker) and listeners
+  const msgs = panel.messages;
+  const speakerMsg = msgs[msgs.length - 1];
+  const listenerNames = [...new Set(msgs.slice(0, -1).map(m => m.user))].filter(n => n !== speakerMsg.user);
+
+  // Positions
+  const speakerX = Math.round(w * 0.62);
+  const speakerY = yOffset + h - 50;
+
+  // Draw listeners on left
+  listenerNames.forEach((name, i) => {
+    const lx = Math.round(w * (0.15 + i * 0.2));
+    const ly = speakerY;
+    const lMsg = msgs.slice().reverse().find(m => m.user === name) || msgs[0];
+    drawChar(cx, lx, ly, lMsg.charIdx, lMsg.emotion, 'neutral');
+    cx.fillStyle = '#333';
+    cx.font = '10px Arial, sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText(name, lx, ly + 38);
+  });
+
+  // Draw speaker
+  drawChar(cx, speakerX, speakerY, speakerMsg.charIdx, speakerMsg.emotion, speakerMsg.gesture);
+  cx.fillStyle = '#333';
+  cx.font = '10px Arial, sans-serif';
+  cx.textAlign = 'center';
+  cx.fillText(speakerMsg.user, speakerX, speakerY + 38);
+
+  // Draw balloon(s) — all messages in chronological order
+  let balloonY = yOffset + 18;
+  msgs.forEach((m) => {
+    const bx = (m.user === speakerMsg.user) ? speakerX : Math.round(w * 0.15);
+    const lines = wrapText(m.text, 22);
+    const bw = Math.min(Math.max(...lines.map(l => l.length)) * 7 + 20, w * 0.55);
+    const bh = lines.length * 18 + 14;
+    const bleftX = bx - bw / 2;
+
+    drawBalloon(cx, bleftX, balloonY, bw, bh, m.balloon, lines, m.charIdx);
+    balloonY += bh + 8;
+  });
+
+  autoScroll();
+}
+
+// ─── Character drawing ────────────────────────────────────────────────────────
+
+function drawChar(cx, x, y, charIdx, emotion, gesture) {
+  const color = charIdx >= 0 ? CHAR_COLORS[charIdx % CHAR_COLORS.length] : '#888';
+  const emoji = EMOTIONS[emotion] || '😐';
+
+  // Head (emoji)
+  cx.font = '26px serif';
+  cx.textAlign = 'center';
+  cx.textBaseline = 'bottom';
+  cx.fillText(emoji, x, y - 20);
+  cx.textBaseline = 'alphabetic';
+
+  // Body
+  cx.strokeStyle = color;
+  cx.lineWidth = 2.5;
+  cx.lineCap = 'round';
+
+  const neck = y - 18;
+  const shoulder = y - 8;
+  const hip = y + 8;
+  const footL = y + 30;
+  const footR = y + 30;
+
+  // Spine
+  cx.beginPath();
+  cx.moveTo(x, neck);
+  cx.lineTo(x, hip);
+  cx.stroke();
+
+  // Arms
+  let armLAngle = Math.PI * 0.75; // default: arms down-outward
+  let armRAngle = Math.PI * 0.25;
+
+  if (gesture === 'point-self') {
+    armLAngle = Math.PI * 0.55; // left arm up toward self
+    armRAngle = Math.PI * 0.35;
+  } else if (gesture === 'point-other') {
+    armLAngle = Math.PI * 0.65;
+    armRAngle = Math.PI * 0.1; // right arm out pointing
+  }
+
+  const armLen = 20;
+  cx.beginPath();
+  cx.moveTo(x, shoulder);
+  cx.lineTo(x + Math.cos(armLAngle) * armLen, shoulder - Math.sin(armLAngle) * armLen);
+  cx.stroke();
+
+  cx.beginPath();
+  cx.moveTo(x, shoulder);
+  cx.lineTo(x + Math.cos(Math.PI - armRAngle) * armLen, shoulder - Math.sin(Math.PI - armRAngle) * armLen);
+  cx.stroke();
+
+  // Legs
+  cx.beginPath();
+  cx.moveTo(x, hip);
+  cx.lineTo(x - 12, footL);
+  cx.stroke();
+
+  cx.beginPath();
+  cx.moveTo(x, hip);
+  cx.lineTo(x + 12, footR);
+  cx.stroke();
+}
+
+// ─── Balloon drawing ──────────────────────────────────────────────────────────
+
+function drawBalloon(cx, x, y, w, h, type, lines, charIdx) {
+  const r = 10; // corner radius
+  const color = charIdx >= 0 ? CHAR_COLORS[charIdx % CHAR_COLORS.length] : '#888';
+
+  cx.save();
+
+  if (type === 'thought') {
+    drawThoughtBalloon(cx, x, y, w, h, lines);
+  } else if (type === 'shout') {
+    drawShoutBalloon(cx, x, y, w, h, lines, color);
+  } else if (type === 'whisper') {
+    drawWhisperBalloon(cx, x, y, w, h, lines);
+  } else {
+    drawSpeechBalloon(cx, x, y, w, h, lines);
+  }
+
+  cx.restore();
+}
+
+function drawSpeechBalloon(cx, x, y, w, h, lines) {
+  const r = 10;
+  cx.beginPath();
+  cx.moveTo(x + r, y);
+  cx.lineTo(x + w - r, y);
+  cx.quadraticCurveTo(x + w, y, x + w, y + r);
+  cx.lineTo(x + w, y + h - r);
+  cx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  // Tail pointing down-left toward speaker
+  cx.lineTo(x + r + 20, y + h);
+  cx.lineTo(x + r + 10, y + h + 12);
+  cx.lineTo(x + r, y + h);
+  cx.quadraticCurveTo(x, y + h, x, y + h - r);
+  cx.lineTo(x, y + r);
+  cx.quadraticCurveTo(x, y, x + r, y);
+  cx.closePath();
+  cx.fillStyle = '#fff';
+  cx.fill();
+  cx.strokeStyle = '#222';
+  cx.lineWidth = 1.5;
+  cx.stroke();
+  drawBalloonText(cx, x, y, w, h, lines);
+}
+
+function drawThoughtBalloon(cx, x, y, w, h, lines) {
+  // Chain of small circles leading to main oval
+  const bubbles = [
+    { x: x + 15, y: y + h + 10, r: 4 },
+    { x: x + 20, y: y + h + 4,  r: 6 },
+    { x: x + 28, y: y + h - 2,  r: 8 },
+  ];
+  bubbles.forEach(b => {
+    cx.beginPath();
+    cx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+    cx.fillStyle = '#fff';
+    cx.fill();
+    cx.strokeStyle = '#222';
+    cx.lineWidth = 1.5;
+    cx.stroke();
+  });
+
+  // Main ellipse
+  const cx2 = x + w / 2;
+  const cy2 = y + h / 2;
+  const rx = w / 2;
+  const ry = h / 2;
+  cx.beginPath();
+  cx.ellipse(cx2, cy2, rx, ry, 0, 0, Math.PI * 2);
+  cx.fillStyle = '#fff';
+  cx.fill();
+  cx.strokeStyle = '#222';
+  cx.lineWidth = 1.5;
+  cx.stroke();
+  drawBalloonText(cx, x, y, w, h, lines);
+}
+
+function drawShoutBalloon(cx, bx, by, bw, bh, lines, color) {
+  const cx2 = bx + bw / 2;
+  const cy2 = by + bh / 2;
+  const rx = bw / 2 + 8;
+  const ry = bh / 2 + 8;
+  const spikes = 12;
+
+  cx.beginPath();
+  for (let i = 0; i < spikes * 2; i++) {
+    const angle = (i / (spikes * 2)) * Math.PI * 2 - Math.PI / 2;
+    const r = i % 2 === 0 ? 1 : 0.7;
+    const px = cx2 + Math.cos(angle) * rx * r;
+    const py = cy2 + Math.sin(angle) * ry * r;
+    i === 0 ? cx.moveTo(px, py) : cx.lineTo(px, py);
+  }
+  cx.closePath();
+  cx.fillStyle = '#fffbe6';
+  cx.fill();
+  cx.strokeStyle = color;
+  cx.lineWidth = 2;
+  cx.stroke();
+  drawBalloonText(cx, bx, by, bw, bh, lines);
+}
+
+function drawWhisperBalloon(cx, x, y, w, h, lines) {
+  const r = 10;
+  cx.beginPath();
+  cx.moveTo(x + r, y);
+  cx.lineTo(x + w - r, y);
+  cx.quadraticCurveTo(x + w, y, x + w, y + r);
+  cx.lineTo(x + w, y + h - r);
+  cx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  cx.lineTo(x + r, y + h);
+  cx.quadraticCurveTo(x, y + h, x, y + h - r);
+  cx.lineTo(x, y + r);
+  cx.quadraticCurveTo(x, y, x + r, y);
+  cx.closePath();
+  cx.fillStyle = '#f8f8ff';
+  cx.fill();
+  cx.setLineDash([4, 3]);
+  cx.strokeStyle = '#888';
+  cx.lineWidth = 1.5;
+  cx.stroke();
+  cx.setLineDash([]);
+  drawBalloonText(cx, x, y, w, h, lines);
+}
+
+function drawBalloonText(cx, x, y, w, h, lines) {
+  cx.fillStyle = '#111';
+  cx.font = 'bold 12px "Comic Sans MS", cursive';
+  cx.textAlign = 'left';
+  cx.textBaseline = 'top';
+  const lineH = 17;
+  const totalH = lines.length * lineH;
+  const startY = y + (h - totalH) / 2;
+  lines.forEach((line, i) => {
+    cx.fillText(line, x + 10, startY + i * lineH);
+  });
+}
+
+// ─── Text utilities ───────────────────────────────────────────────────────────
+
+function wrapText(text, charsPerLine) {
+  const words = text.split(' ');
+  const lines = [];
+  let current = '';
+  words.forEach(word => {
+    if ((current + ' ' + word).trim().length <= charsPerLine) {
+      current = (current + ' ' + word).trim();
+    } else {
+      if (current) lines.push(current);
+      // If word itself is too long, split it
+      while (word.length > charsPerLine) {
+        lines.push(word.slice(0, charsPerLine));
+        word = word.slice(charsPerLine);
+      }
+      current = word;
+    }
+  });
+  if (current) lines.push(current);
+  return lines.length ? lines : [''];
+}
+
+// ─── Auto-detection ───────────────────────────────────────────────────────────
+
+function detectEmotion(text) {
+  if (/lol|lmao|haha/i.test(text)) return 'laughing';
+  if (text.length > 3 && text === text.toUpperCase() && /[A-Z]/.test(text)) return 'shouting';
+  if (/:\)|:D|😊|😄/.test(text)) return 'happy';
+  if (/:\(|😢|😞/.test(text)) return 'sad';
+  if (/>:\(|😠|angry/i.test(text)) return 'angry';
+  if (/eek|omg|😱|😨|scared/i.test(text)) return 'scared';
+  return null;
+}
+
+function detectGesture(text) {
+  if (/^I[' ]|^I'm|^I'll|^I am/i.test(text)) return 'point-self';
+  if (/^[Yy]ou|^Are you|^Will you/.test(text)) return 'point-other';
+  return 'neutral';
+}
+
+function detectBalloon(text) {
+  if (text.length > 3 && text === text.toUpperCase() && /[A-Z]/.test(text)) return 'shout';
+  return null;
+}
+
+// ─── Mugshots sidebar ─────────────────────────────────────────────────────────
+
+function renderMugshots() {
+  const container = document.getElementById('mugshots');
+  container.innerHTML = '';
+
+  roster.forEach(({ name, charIdx }) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'mugshot-wrap';
+    wrap.id = `mug-wrap-${name}`;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 60;
+    canvas.height = 70;
+    canvas.id = `mug-${name}`;
+    wrap.appendChild(canvas);
+
+    const label = document.createElement('div');
+    label.className = 'mugshot-label';
+    if (name === myName) {
+      const badge = document.createElement('span');
+      badge.className = 'you-badge';
+      badge.textContent = 'YOU';
+      label.appendChild(badge);
+      label.appendChild(document.createTextNode(' ' + name));
+    } else {
+      label.textContent = name;
+    }
+    wrap.appendChild(label);
+    container.appendChild(wrap);
+
+    drawMugshot(canvas, charIdx, mugEmotions[name] || 'neutral');
+  });
+}
+
+function updateMugshot(name) {
+  const canvas = document.getElementById(`mug-${name}`);
+  if (!canvas) return;
+  const user = roster.find(u => u.name === name);
+  if (!user) return;
+  drawMugshot(canvas, user.charIdx, mugEmotions[name] || 'neutral');
+}
+
+function drawMugshot(canvas, charIdx, emotion) {
+  const cx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  cx.clearRect(0, 0, w, h);
+
+  // Background
+  cx.fillStyle = '#fff';
+  cx.fillRect(0, 0, w, h);
+  cx.strokeStyle = '#222';
+  cx.lineWidth = 1.5;
+  cx.strokeRect(0.75, 0.75, w - 1.5, h - 1.5);
+
+  // Draw mini character
+  drawChar(cx, w / 2, h - 14, charIdx, emotion, 'neutral');
+}
+
+// ─── Emotion wheel ────────────────────────────────────────────────────────────
+
+const emotionWheel = document.getElementById('emotion-wheel');
+const ewCtx = emotionWheel.getContext('2d');
+const EW_CX = 90, EW_CY = 90, EW_R = 78;
+
+function drawEmotionWheel() {
+  const cx = ewCtx;
+  cx.clearRect(0, 0, 180, 180);
+
+  EMOTION_KEYS.forEach((key, i) => {
+    const startAngle = (i / EMOTION_KEYS.length) * Math.PI * 2 - Math.PI / 2;
+    const endAngle = ((i + 1) / EMOTION_KEYS.length) * Math.PI * 2 - Math.PI / 2;
+    const isSelected = key === selectedEmotion;
+
+    cx.beginPath();
+    cx.moveTo(EW_CX, EW_CY);
+    cx.arc(EW_CX, EW_CY, EW_R, startAngle, endAngle);
+    cx.closePath();
+
+    cx.fillStyle = isSelected ? '#ffe066' : '#f8f8f8';
+    cx.fill();
+    cx.strokeStyle = '#888';
+    cx.lineWidth = 1;
+    cx.stroke();
+
+    // Emoji label
+    const midAngle = (startAngle + endAngle) / 2;
+    const labelR = EW_R * 0.65;
+    const lx = EW_CX + Math.cos(midAngle) * labelR;
+    const ly = EW_CY + Math.sin(midAngle) * labelR;
+    cx.font = '18px serif';
+    cx.textAlign = 'center';
+    cx.textBaseline = 'middle';
+    cx.fillText(EMOTIONS[key], lx, ly);
+  });
+
+  // Center circle
+  cx.beginPath();
+  cx.arc(EW_CX, EW_CY, 18, 0, Math.PI * 2);
+  cx.fillStyle = selectedEmotion === 'neutral' ? '#ffe066' : '#eee';
+  cx.fill();
+  cx.strokeStyle = '#888';
+  cx.lineWidth = 1;
+  cx.stroke();
+  cx.font = '16px serif';
+  cx.textAlign = 'center';
+  cx.textBaseline = 'middle';
+  cx.fillText(EMOTIONS['neutral'], EW_CX, EW_CY);
+}
+
+emotionWheel.addEventListener('click', (e) => {
+  const rect = emotionWheel.getBoundingClientRect();
+  const mx = e.clientX - rect.left - EW_CX;
+  const my = e.clientY - rect.top - EW_CY;
+  const dist = Math.sqrt(mx * mx + my * my);
+
+  if (dist < 18) {
+    selectedEmotion = 'neutral';
+  } else if (dist <= EW_R) {
+    let angle = Math.atan2(my, mx) + Math.PI / 2;
+    if (angle < 0) angle += Math.PI * 2;
+    const idx = Math.floor((angle / (Math.PI * 2)) * EMOTION_KEYS.length) % EMOTION_KEYS.length;
+    selectedEmotion = EMOTION_KEYS[idx];
+  }
+
+  drawEmotionWheel();
+});
+
+// ─── Auto-scroll ──────────────────────────────────────────────────────────────
+
+function autoScroll() {
+  const scroll = document.getElementById('comic-scroll');
+  scroll.scrollTop = scroll.scrollHeight;
+}
+
+// ─── Sending messages ─────────────────────────────────────────────────────────
+
+function sendChat() {
+  const nameInput = document.getElementById('name-input');
+  const chatInput = document.getElementById('chat-input');
+  const text = chatInput.value.trim();
+  if (!text) return;
+
+  // Name setup
+  if (!myName) {
+    const rawName = nameInput.value.trim();
+    if (!rawName) {
+      nameInput.focus();
+      nameInput.style.border = '2px solid red';
+      return;
+    }
+    myName = rawName.slice(0, 20);
+    sendMsg({ type: 'join', name: myName });
+  }
+
+  // Detect emotion
+  let emotion = selectedEmotion;
+  if (emotion === 'neutral') {
+    const auto = detectEmotion(text);
+    if (auto) {
+      emotion = auto;
+      selectedEmotion = auto;
+      drawEmotionWheel();
+    }
+  }
+
+  // Detect balloon
+  let balloon = getSelectedBalloon();
+  const autoBalloon = detectBalloon(text);
+  if (autoBalloon && balloon === 'speech') {
+    balloon = autoBalloon;
+    document.querySelector(`input[name="balloon"][value="${balloon}"]`).checked = true;
+  }
+
+  sendMsg({ type: 'chat', text, emotion, balloon });
+  chatInput.value = '';
+  chatInput.focus();
+}
+
+function getSelectedBalloon() {
+  return document.querySelector('input[name="balloon"]:checked')?.value || 'speech';
+}
+
+// ─── Input events ─────────────────────────────────────────────────────────────
+
+document.getElementById('chat-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') sendChat();
+});
+
+document.getElementById('send-btn').addEventListener('click', sendChat);
+
+document.getElementById('name-input').addEventListener('input', () => {
+  document.getElementById('name-input').style.border = '';
+});
+
+// ─── Status bar ───────────────────────────────────────────────────────────────
+
+function setStatus(msg) {
+  document.getElementById('status-bar').textContent = msg;
+}
+
+// ─── Canvas sizing ────────────────────────────────────────────────────────────
+
+function resizeCanvas() {
+  const scroll = document.getElementById('comic-scroll');
+  const newW = scroll.clientWidth - 16;
+  if (comicCanvas.width !== newW) {
+    // Preserve drawn content by copying to temp, then restore
+    const img = cx_snapshot();
+    comicCanvas.width = newW;
+    if (img) comicCtx.drawImage(img, 0, 0);
+  }
+}
+
+function cx_snapshot() {
+  if (canvasHeight === 0) return null;
+  const tmp = document.createElement('canvas');
+  tmp.width = comicCanvas.width;
+  tmp.height = comicCanvas.height;
+  tmp.getContext('2d').drawImage(comicCanvas, 0, 0);
+  return tmp;
+}
+
+window.addEventListener('resize', () => {
+  // Simple approach: just update width (panels already drawn at old width)
+  const scroll = document.getElementById('comic-scroll');
+  comicCanvas.style.width = '100%';
+});
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+
+function init() {
+  // Size canvas to scroll container
+  const scroll = document.getElementById('comic-scroll');
+  comicCanvas.width = scroll.clientWidth - 16;
+  comicCanvas.height = 0;
+  canvasHeight = 0;
+
+  drawEmotionWheel();
+  connect();
+
+  // Focus name input
+  document.getElementById('name-input').focus();
+}
+
+init();
+</script>
+</body>
+</html>
